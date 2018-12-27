@@ -19,6 +19,7 @@ release:
     git add lib/zold/version.rb
     git commit -m "version set to ${tag}"
     gem build zold.gemspec
+    gem install zold-score
     gem install --local zold-0.0.0.gem
     zold --version | grep -vq '0.0.0' && exit -1
     zold remote update
