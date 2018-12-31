@@ -21,7 +21,9 @@
 # SOFTWARE.
 
 require 'minitest/autorun'
+require 'webmock/minitest'
 require 'tmpdir'
+require_relative '../fake_home'
 require_relative '../test__helper'
 require_relative '../../lib/zold/wallets'
 require_relative '../../lib/zold/key'
@@ -33,9 +35,11 @@ require_relative '../../lib/zold/commands/create'
 # License:: MIT
 class TestCreate < Zold::Test
   def test_creates_wallet
-    Dir.mktmpdir do |dir|
-      wallets = Zold::Wallets.new(dir)
-      id = Zold::Create.new(wallets: wallets, log: test_log).run(
+    FakeHome.new(log: test_log).run do |home|
+      wallets = Zold::Wallets.new(home.dir)
+      remotes = home.remotes
+      copies = home.copies
+      id = Zold::Create.new(wallets: wallets, copies: copies, remotes: remotes, log: test_log).run(
         ['create', '--public-key=fixtures/id_rsa.pub']
       )
       wallets.acq(id) do |wallet|
@@ -45,6 +49,20 @@ class TestCreate < Zold::Test
           "Wallet file not found: #{wallet.id}#{Zold::Wallet::EXT}"
         )
       end
+    end
+  end
+
+  def test_creates_wallet_even_if_already_exists
+    FakeHome.new(log: test_log).run do |home|
+      wallets = Zold::Wallets.new(home.dir)
+      remotes = home.remotes
+      remotes.add('localhost', 80)
+      copies = home.copies
+      stub_request(:get, /http:\/\/localhost:80\/wallet\//).to_return(status: 200)
+      id = Zold::Create.new(wallets: wallets, copies: copies, remotes: remotes, log: test_log).run(
+        ['create', '--public-key=fixtures/id_rsa.pub']
+      )
+      assert_requested(:get, "http://localhost:80/wallet/#{id}")
     end
   end
 end

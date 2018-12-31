@@ -22,6 +22,7 @@
 
 require 'slop'
 require 'rainbow'
+require_relative 'fetch'
 require_relative 'thread_badge'
 require_relative 'args'
 require_relative '../wallet'
@@ -37,8 +38,10 @@ module Zold
   class Create
     prepend ThreadBadge
 
-    def initialize(wallets:, log: Log::NULL)
+    def initialize(wallets:, copies:, remotes:, log: Log::NULL)
       @wallets = wallets
+      @copies = copies
+      @remotes = remotes
       @log = log
     end
 
@@ -63,6 +66,10 @@ Available options:"
     private
 
     def create(id, opts)
+      puts @remotes
+      Zold::Fetch.new(wallets: @wallets, copies: @copies.root, remotes: @remotes, log: @log).run(
+        ['fetch', '--tolerate-edges', '--tolerate-quorum=1', '--ignore-score-weakness', id.to_s]
+      )
       key = Zold::Key.new(file: opts['public-key'])
       @wallets.acq(id, exclusive: true) do |wallet|
         wallet.init(id, key, network: opts['network'])
